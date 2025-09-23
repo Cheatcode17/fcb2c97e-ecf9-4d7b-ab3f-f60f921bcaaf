@@ -55,22 +55,41 @@ const YouTubeDownloader = () => {
 
     setIsLoading(true);
     
-    // Simulate API call - replace with actual backend integration
-    setTimeout(() => {
-      // Mock video data
-      setVideoInfo({
-        title: "Sample YouTube Video Title - Replace with Real Data",
-        thumbnail: "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
-        duration: "3:32",
-        author: "Sample Channel",
-        views: "1,234,567 views"
+    try {
+      const response = await fetch('https://lwptyzfpqdzefyiovmjr.supabase.co/functions/v1/youtube-info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cHR5emZwcWR6ZWZ5aW92bWpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NTIwNjAsImV4cCI6MjA3NDIyODA2MH0.beOc0XDRoJ0tCVb9DifMedv5AC8-5ViWSd6TtWSerGw`
+        },
+        body: JSON.stringify({ url })
       });
-      setIsLoading(false);
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fetch video info');
+      }
+
+      if (result.success) {
+        setVideoInfo(result.data);
+        toast({
+          title: "Video Found!",
+          description: "Video information loaded successfully"
+        });
+      } else {
+        throw new Error(result.error || 'Failed to fetch video info');
+      }
+    } catch (error) {
+      console.error('Error fetching video info:', error);
       toast({
-        title: "Video Found!",
-        description: "Video information loaded successfully"
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch video information",
+        variant: "destructive"
       });
-    }, 1500);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDownload = async () => {
@@ -86,28 +105,52 @@ const YouTubeDownloader = () => {
     setIsLoading(true);
     setDownloadProgress(0);
 
-    // Simulate download progress
-    const progressInterval = setInterval(() => {
-      setDownloadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(progressInterval);
-          setIsLoading(false);
-          toast({
-            title: "Download Complete!",
-            description: `${downloadType === 'video' ? 'Video' : 'Audio'} downloaded successfully`
-          });
-          return 100;
-        }
-        return prev + 10;
+    try {
+      const response = await fetch('https://lwptyzfpqdzefyiovmjr.supabase.co/functions/v1/youtube-download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cHR5emZwcWR6ZWZ5aW92bWpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NTIwNjAsImV4cCI6MjA3NDIyODA2MH0.beOc0XDRoJ0tCVb9DifMedv5AC8-5ViWSd6TtWSerGw`
+        },
+        body: JSON.stringify({ 
+          url, 
+          type: downloadType, 
+          quality: downloadType === 'video' ? quality : undefined 
+        })
       });
-    }, 300);
 
-    // In a real implementation, this would call your backend API:
-    // const response = await fetch('/api/download', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ url, type: downloadType, quality })
-    // });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Download failed');
+      }
+
+      // Simulate progress for demo purposes
+      const progressInterval = setInterval(() => {
+        setDownloadProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(progressInterval);
+            setIsLoading(false);
+            toast({
+              title: "Download Prepared!",
+              description: `${downloadType === 'video' ? 'Video' : 'Audio'} download ready`,
+            });
+            return 100;
+          }
+          return prev + 20;
+        });
+      }, 200);
+
+    } catch (error) {
+      console.error('Error downloading:', error);
+      setIsLoading(false);
+      setDownloadProgress(0);
+      toast({
+        title: "Download Error",
+        description: error instanceof Error ? error.message : "Failed to prepare download",
+        variant: "destructive"
+      });
+    }
   };
 
   const clearForm = () => {
