@@ -15,6 +15,8 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        youtube: "youtube-button text-white border-0 hover:scale-105",
+        "youtube-secondary": "bg-secondary/80 text-secondary-foreground hover:bg-secondary border border-border/50 backdrop-blur-sm",
       },
       size: {
         default: "h-10 px-4 py-2",
