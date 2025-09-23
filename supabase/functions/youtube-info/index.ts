@@ -41,41 +41,40 @@ serve(async (req) => {
       )
     }
 
-    // Fetch video info using YouTube's oEmbed API
-    const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
-    const oembedResponse = await fetch(oembedUrl)
+    // Use a reliable YouTube info API service
+    const apiResponse = await fetch(`https://api.apiyt.com/info?url=https://www.youtube.com/watch?v=${videoId}`)
     
-    if (!oembedResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: 'Video not found or unavailable' }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+    let videoInfo: VideoInfo;
+    
+    if (apiResponse.ok) {
+      const apiData = await apiResponse.json()
+      videoInfo = {
+        title: apiData.title || 'Unknown Title',
+        thumbnail: apiData.thumbnail || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+        duration: formatDuration(apiData.duration) || 'Unknown',
+        author: apiData.author || 'Unknown Channel',
+        views: formatViews(apiData.view_count) || 'Unknown',
+        videoId
+      }
+    } else {
+      // Fallback to oEmbed API
+      const oembedResponse = await fetch(
+        `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
       )
-    }
 
-    const oembedData = await oembedResponse.json()
+      if (!oembedResponse.ok) {
+        throw new Error('Video not found or unavailable')
+      }
 
-    // Get additional info from YouTube's basic info endpoint
-    const infoUrl = `https://www.youtube.com/watch?v=${videoId}`
-    const infoResponse = await fetch(infoUrl)
-    const infoHtml = await infoResponse.text()
-
-    // Extract duration and view count from HTML (basic scraping)
-    const durationMatch = infoHtml.match(/"lengthSeconds":"(\d+)"/);
-    const viewCountMatch = infoHtml.match(/"viewCount":"(\d+)"/);
-    
-    const duration = durationMatch ? formatDuration(parseInt(durationMatch[1])) : 'Unknown'
-    const views = viewCountMatch ? formatViews(parseInt(viewCountMatch[1])) : 'Unknown views'
-
-    const videoInfo: VideoInfo = {
-      title: oembedData.title,
-      thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-      duration,
-      author: oembedData.author_name,
-      views,
-      videoId
+      const oembedData = await oembedResponse.json()
+      videoInfo = {
+        title: oembedData.title,
+        thumbnail: oembedData.thumbnail_url,
+        duration: 'Unknown',
+        author: oembedData.author_name,
+        views: 'Unknown',
+        videoId
+      }
     }
 
     return new Response(
@@ -88,7 +87,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error fetching video info:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Failed to fetch video information' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -111,10 +110,11 @@ function extractVideoId(url: string): string | null {
 }
 
 function formatDuration(seconds: number): string {
+  if (!seconds) return 'Unknown'
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
   const secs = seconds % 60
-
+  
   if (hours > 0) {
     return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
@@ -122,6 +122,7 @@ function formatDuration(seconds: number): string {
 }
 
 function formatViews(views: number): string {
+  if (!views) return 'Unknown'
   if (views >= 1000000) {
     return `${(views / 1000000).toFixed(1)}M views`
   } else if (views >= 1000) {

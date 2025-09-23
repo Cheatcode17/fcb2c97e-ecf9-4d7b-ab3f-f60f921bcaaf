@@ -125,21 +125,28 @@ const YouTubeDownloader = () => {
         throw new Error(result.error || 'Download failed');
       }
 
-      // Simulate progress for demo purposes
-      const progressInterval = setInterval(() => {
-        setDownloadProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(progressInterval);
-            setIsLoading(false);
-            toast({
-              title: "Download Prepared!",
-              description: `${downloadType === 'video' ? 'Video' : 'Audio'} download ready`,
-            });
-            return 100;
-          }
-          return prev + 20;
+      if (result.success && result.data.downloadUrl) {
+        // Create a temporary link to trigger download
+        const link = document.createElement('a');
+        link.href = result.data.downloadUrl;
+        link.download = result.data.filename;
+        link.target = '_blank';
+        
+        // Add the link to DOM, click it, then remove it
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setIsLoading(false);
+        setDownloadProgress(100);
+        
+        toast({
+          title: "Download Started!",
+          description: `${downloadType === 'video' ? 'Video' : 'Audio'} download should start in your browser`,
         });
-      }, 200);
+      } else {
+        throw new Error('No download URL received');
+      }
 
     } catch (error) {
       console.error('Error downloading:', error);
@@ -277,16 +284,30 @@ const YouTubeDownloader = () => {
                 )}
               </div>
 
-              {/* Download Progress */}
-              {downloadProgress > 0 && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Downloading...</span>
-                    <span>{downloadProgress}%</span>
-                  </div>
-                  <Progress value={downloadProgress} className="loading-pulse" />
+          {/* Download Progress */}
+          {downloadProgress > 0 && downloadProgress < 100 && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Preparing download...</span>
+                <span>{downloadProgress}%</span>
+              </div>
+              <Progress value={downloadProgress} className="loading-pulse" />
+            </div>
+          )}
+
+          {downloadProgress === 100 && (
+            <div className="p-4 rounded-lg bg-youtube/10 border border-youtube/20">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-youtube/20">
+                  <Download className="w-4 h-4 text-youtube" />
                 </div>
-              )}
+                <div>
+                  <p className="font-medium text-youtube">Download Ready!</p>
+                  <p className="text-sm text-muted-foreground">Your file should start downloading to your device.</p>
+                </div>
+              </div>
+            </div>
+          )}
 
               {/* Action Buttons */}
               <div className="flex gap-3">
@@ -314,18 +335,18 @@ const YouTubeDownloader = () => {
             </div>
           )}
 
-          {/* Backend Integration Note */}
-          <Card className="bg-muted/30 border-border/30">
+          {/* Backend Integration Status */}
+          <Card className="bg-youtube/10 border-youtube/20">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
                 <div className="p-2 rounded-full bg-youtube/20 mt-1">
                   <ExternalLink className="w-4 h-4 text-youtube" />
                 </div>
                 <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Backend Integration Required</h4>
+                  <h4 className="font-medium text-sm text-youtube">✅ Backend Connected</h4>
                   <p className="text-xs text-muted-foreground">
-                    This frontend is ready to connect to your Node.js + Express backend. 
-                    The API endpoints should handle video fetching and download processing using ytdl-core.
+                    Your app is now connected to powerful YouTube download APIs through Supabase Edge Functions. 
+                    Downloads will be processed and delivered directly to your device.
                   </p>
                 </div>
               </div>

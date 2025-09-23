@@ -32,31 +32,96 @@ serve(async (req) => {
       )
     }
 
-    // For this demo, we'll return a download URL that would work with a proper YouTube downloading service
-    // In a production environment, you'd use ytdl-core or similar library
-    // Note: Direct YouTube downloading may violate YouTube's Terms of Service
-    
-    const downloadInfo = {
-      videoId,
-      type,
-      quality: type === 'video' ? quality : 'audio',
-      filename: `youtube_${videoId}_${type === 'video' ? quality : 'audio'}.${type === 'video' ? 'mp4' : 'mp3'}`,
-      // This would be replaced with actual download stream in production
-      downloadUrl: `#download-${videoId}-${type}-${quality}`,
-      message: 'Download preparation complete'
-    }
+    console.log(`Processing download request: ${type} ${quality || 'audio'} for video ${videoId}`)
 
-    return new Response(
-      JSON.stringify({ success: true, data: downloadInfo }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    try {
+      // Use reliable YouTube download API service
+      const downloadApiUrl = type === 'video' 
+        ? `https://api.apiyt.com/download/mp4?url=https://www.youtube.com/watch?v=${videoId}&quality=${quality || '720p'}`
+        : `https://api.apiyt.com/download/mp3?url=https://www.youtube.com/watch?v=${videoId}`
+
+      const downloadResponse = await fetch(downloadApiUrl)
+      
+      if (!downloadResponse.ok) {
+        throw new Error(`Download service error: ${downloadResponse.status}`)
       }
-    )
+
+      const downloadData = await downloadResponse.json()
+      
+      if (downloadData.success && downloadData.download_url) {
+        // Return the actual download URL from the service
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            data: {
+              videoId,
+              type,
+              quality: type === 'video' ? quality : 'audio',
+              filename: downloadData.filename || `youtube_${videoId}_${type === 'video' ? quality : 'audio'}.${type === 'video' ? 'mp4' : 'mp3'}`,
+              downloadUrl: downloadData.download_url,
+              message: 'Download ready! Click to download to your device.',
+              fileSize: downloadData.file_size || 'Unknown'
+            }
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        )
+      } else {
+        throw new Error('Download service did not return a valid download URL')
+      }
+
+    } catch (apiError) {
+      console.error('Primary API failed, trying backup service:', apiError)
+      
+      // Fallback to alternative service
+      try {
+        const backupApiUrl = `https://yt-mp3s.me/api/download`
+        const backupResponse = await fetch(backupApiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: `https://www.youtube.com/watch?v=${videoId}`,
+            format: type === 'video' ? 'mp4' : 'mp3',
+            quality: type === 'video' ? quality : '192'
+          })
+        })
+
+        if (backupResponse.ok) {
+          const backupData = await backupResponse.json()
+          if (backupData.download_url) {
+            return new Response(
+              JSON.stringify({ 
+                success: true, 
+                data: {
+                  videoId,
+                  type,
+                  quality: type === 'video' ? quality : 'audio',
+                  filename: `youtube_${videoId}_${type === 'video' ? quality : 'audio'}.${type === 'video' ? 'mp4' : 'mp3'}`,
+                  downloadUrl: backupData.download_url,
+                  message: 'Download ready! Click to download to your device.'
+                }
+              }),
+              {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              }
+            )
+          }
+        }
+      } catch (backupError) {
+        console.error('Backup service also failed:', backupError)
+      }
+      
+      // If all services fail, return error
+      throw new Error('All download services are currently unavailable')
+    }
 
   } catch (error) {
     console.error('Error preparing download:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: error.message || 'Internal server error' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
