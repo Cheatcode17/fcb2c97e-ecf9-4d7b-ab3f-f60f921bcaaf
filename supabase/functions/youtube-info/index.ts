@@ -11,13 +11,33 @@ interface VideoInfo {
 }
 
 serve(async (req) => {
+  console.log('YouTube Info function called')
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { url } = await req.json()
+    console.log('Processing request:', req.method)
+    const body = await req.text()
+    console.log('Request body:', body)
+    
+    let parsedBody;
+    try {
+      parsedBody = JSON.parse(body)
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError)
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+    
+    const { url } = parsedBody
 
     if (!url) {
       return new Response(
@@ -41,13 +61,18 @@ serve(async (req) => {
       )
     }
 
+    console.log('Fetching from API:', `https://api.apiyt.com/info?url=https://www.youtube.com/watch?v=${videoId}`)
+    
     // Use a reliable YouTube info API service
     const apiResponse = await fetch(`https://api.apiyt.com/info?url=https://www.youtube.com/watch?v=${videoId}`)
+    
+    console.log('API Response status:', apiResponse.status)
     
     let videoInfo: VideoInfo;
     
     if (apiResponse.ok) {
       const apiData = await apiResponse.json()
+      console.log('API Data received:', apiData)
       videoInfo = {
         title: apiData.title || 'Unknown Title',
         thumbnail: apiData.thumbnail || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
@@ -57,16 +82,20 @@ serve(async (req) => {
         videoId
       }
     } else {
+      console.log('Primary API failed, trying fallback...')
       // Fallback to oEmbed API
       const oembedResponse = await fetch(
         `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
       )
+
+      console.log('oEmbed Response status:', oembedResponse.status)
 
       if (!oembedResponse.ok) {
         throw new Error('Video not found or unavailable')
       }
 
       const oembedData = await oembedResponse.json()
+      console.log('oEmbed Data received:', oembedData)
       videoInfo = {
         title: oembedData.title,
         thumbnail: oembedData.thumbnail_url,
@@ -86,8 +115,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error fetching video info:', error)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return new Response(
-      JSON.stringify({ error: 'Failed to fetch video information' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to fetch video information' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
