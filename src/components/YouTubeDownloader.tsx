@@ -56,7 +56,7 @@ const YouTubeDownloader = () => {
     setIsLoading(true);
     
     try {
-      const response = await fetch('https://lwptyzfpqdzefyiovmjr.supabase.co/functions/v1/youtube-info', {
+      const response = await fetch('https://lwptyzfpqdzefyiovmjr.supabase.co/functions/v1/fetch-info', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -106,16 +106,16 @@ const YouTubeDownloader = () => {
     setDownloadProgress(0);
 
     try {
-      const response = await fetch('https://lwptyzfpqdzefyiovmjr.supabase.co/functions/v1/youtube-download', {
+      const response = await fetch('https://lwptyzfpqdzefyiovmjr.supabase.co/functions/v1/start-download', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3cHR5emZwcWR6ZWZ5aW92bWpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NTIwNjAsImV4cCI6MjA3NDIyODA2MH0.beOc0XDRoJ0tCVb9DifMedv5AC8-5ViWSd6TtWSerGw`
         },
         body: JSON.stringify({ 
-          url, 
-          type: downloadType, 
-          quality: downloadType === 'video' ? quality : undefined 
+          url,
+          format: downloadType,
+          resolution: downloadType === 'video' ? quality : undefined 
         })
       });
 
